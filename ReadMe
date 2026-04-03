@@ -1,0 +1,134 @@
+# ChaiMetrics — Phase 1, Steps 1–3
+## WSL + Docker setup guide
+
+---
+
+## Prerequisites (WSL side)
+Docker Desktop must be running on Windows with WSL2 integration enabled.
+Confirm from your WSL terminal:
+
+```bash
+docker --version          # Docker 24+
+docker compose version    # v2.x
+```
+
+---
+
+## Project layout
+
+```
+chaimterics/
+├── docker-compose.yml    # Mongo + ml_engine + Ollama
+├── Dockerfile.ml         # Python 3.11-slim ML container
+├── requirements.txt      # All Phase 1 Python deps
+├── data/                 # PUT YOUR JSON FILES HERE
+│   ├── farms.json
+│   └── ktda_pricing.json
+├── scripts/
+│   ├── verify_env.py     # Step 1 — checks everything is working
+│   ├── seed_mongo.py     # Step 2 — loads JSON into MongoDB
+│   └── weather_fetch.py  # Step 3 — pulls Open-Meteo data
+└── models/               # joblib .pkl files land here (Steps 4-6)
+```
+
+---
+
+## Step 1 — Build and start the stack
+
+```bash
+# From the chaimterics/ directory:
+docker compose up --build -d
+
+# Watch startup (Mongo health + Ollama model pull takes ~2-5 min first time):
+docker compose logs -f
+
+# Once stable, verify everything works:
+docker compose exec ml_engine python scripts/verify_env.py
+```
+
+Expected output: all four checks green (packages, MongoDB, Ollama, Open-Meteo).
+
+**Note on Ollama RAM:** Mistral 7B needs ~8GB RAM assigned to Docker.
+In Docker Desktop → Settings → Resources, set Memory to 10GB+.
+If RAM is tight during development, you can run Ollama locally in WSL instead:
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull mistral
+# Then set OLLAMA_HOST=http://host.docker.internal:11434 in docker-compose.yml
+```
+
+---
+
+## Step 2 — Seed MongoDB
+
+# mongoimport the two array files as before:
+docker compose exec mongo mongoimport --db chaimterics --collection farms --file /seed/farms.json --jsonArray
+docker compose exec mongo mongoimport --db chaimterics --collection ktda_pricing --file /seed/ktda_pricing.json --jsonArray
+
+# seed_mongo.py handles synthetic_metadata.json + creates all indexes:
+docker compose exec ml_engine python scripts/seed_mongo.py
+
+farms               : 240 documents
+ktda_pricing        : ~180 documents
+factory_metadata    : 1 document
+weather_history     : 0 documents  (Step 3)
+model_outputs       : 0 documents  (Steps 4-6)
+
+
+## Step 3 — Fetch Open-Meteo weather data
+
+This fetches 15 years × 12 collection centres = ~180 season-centre combinations.
+Each needs 2 calendar-year API calls → ~360 HTTP requests total.
+Already-fetched records are skipped on re-run (idempotent).
+
+```bash
+# Full fetch (run overnight or leave running — ~5-10 minutes):
+docker compose exec ml_engine python scripts/weather_fetch.py
+
+# Test with one centre first:
+docker compose exec ml_engine python scripts/weather_fetch.py --centre "Marima"
+
+# Dry-run to preview what will be fetched:
+docker compose exec ml_engine python scripts/weather_fetch.py --dry-run
+```
+
+Expected final output:
+```
+Fetched:  180
+Skipped (already in DB): 0
+Total in weather_history: 180
+Step 3 done. weather_history collection is ready for preprocessing.
+```
+
+---
+
+## Connecting to MongoDB directly (optional)
+
+```bash
+# Mongosh REPL:
+docker compose exec mongo mongosh chaimterics
+
+# Quick document count:
+docker compose exec mongo mongosh chaimterics \
+  --eval "printjson({farms: db.farms.countDocuments(), pricing: db.ktda_pricing.countDocuments(), weather: db.weather_history.countDocuments()})"
+```
+
+---
+
+## Stopping and restarting
+
+```bash
+docker compose down          # stop containers, keep volumes
+docker compose down -v       # stop + wipe all data (full reset)
+docker compose up -d         # restart in background
+```
+
+---
+
+## Next: Steps 4–6 (preprocessing + model training)
+
+Once Steps 1–3 are verified complete, the next scripts will be:
+
+- `scripts/preprocess.py`  — sklearn pipeline (feature matrix from MongoDB)
+- `scripts/train_xgboost.py` — XGBoost yield model → `models/xgb_yield.pkl`
+- `scripts/train_sarima.py`  — per-farm SARIMA + pricing SARIMA → `models/sarima/`

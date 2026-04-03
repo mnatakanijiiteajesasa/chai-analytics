@@ -1,0 +1,199 @@
+{
+  "generated_by": "ChaiMetrics data synthetic data generator ",
+  "based_on": "Real KTDA factory data \u2014 Weru (Tharaka-Nithi) and Rukuriri (Embu)",
+  "factories": [
+    {
+      "factory_code": "WRU-01",
+      "factory_name": "Weru Tea Factory Company Limited",
+      "county": "Tharaka-Nithi",
+      "region": "Maara/Chuka Highlands",
+      "division": "Maara",
+      "ktda_zone": "Zone 5 (East of Rift)",
+      "factory_lat": -0.338,
+      "factory_lng": 37.637,
+      "altitude_m": 1750,
+      "rainfall_mean_mm": 117,
+      "rainfall_std_mm": 45,
+      "base_yield_kg_per_ha": 375,
+      "optimal_rainfall_mm": 120,
+      "n_farms": 120
+    },
+    {
+      "factory_code": "RKR-01",
+      "factory_name": "Rukuriri Tea Factory Company Limited",
+      "county": "Embu",
+      "region": "Kyeni North, Embu East",
+      "division": "Runyenjes",
+      "ktda_zone": "Zone 6 (East of Rift)",
+      "factory_lat": -0.374,
+      "factory_lng": 37.543,
+      "altitude_m": 1703,
+      "rainfall_mean_mm": 112,
+      "rainfall_std_mm": 42,
+      "base_yield_kg_per_ha": 395,
+      "optimal_rainfall_mm": 115,
+      "n_farms": 120
+    }
+  ],
+  "collection_centres": {
+    "WRU-01": [
+      {
+        "name": "Marima",
+        "lat": -0.325,
+        "lng": 37.625,
+        "altitude_m": 1780,
+        "rainfall_offset": 1.05,
+        "notes": "Closest to factory; Nithi River watershed"
+      },
+      {
+        "name": "Chuka",
+        "lat": -0.338,
+        "lng": 37.651,
+        "altitude_m": 1720,
+        "rainfall_offset": 1.0,
+        "notes": "Chuka town catchment; B6 Embu-Meru road corridor"
+      },
+      {
+        "name": "Chogoria",
+        "lat": -0.298,
+        "lng": 37.667,
+        "altitude_m": 1800,
+        "rainfall_offset": 1.08,
+        "notes": "Upper highland zone; Mt Kenya forest edge"
+      },
+      {
+        "name": "Marimba",
+        "lat": -0.355,
+        "lng": 37.618,
+        "altitude_m": 1700,
+        "rainfall_offset": 0.95,
+        "notes": "Lower Maara slopes; slightly drier"
+      },
+      {
+        "name": "Nthangaari",
+        "lat": -0.312,
+        "lng": 37.642,
+        "altitude_m": 1760,
+        "rainfall_offset": 1.02,
+        "notes": "Central Maara; mixed tea and coffee zone"
+      },
+      {
+        "name": "Kiriani",
+        "lat": -0.348,
+        "lng": 37.66,
+        "altitude_m": 1730,
+        "rainfall_offset": 0.98,
+        "notes": "Chuka north; river Tana upper tributaries"
+      }
+    ],
+    "RKR-01": [
+      {
+        "name": "Rukuriri",
+        "lat": -0.374,
+        "lng": 37.543,
+        "altitude_m": 1703,
+        "rainfall_offset": 1.0,
+        "notes": "Factory gate centre; Kyeni North sub-location"
+      },
+      {
+        "name": "Kyeni",
+        "lat": -0.385,
+        "lng": 37.531,
+        "altitude_m": 1680,
+        "rainfall_offset": 0.97,
+        "notes": "Kyeni North; Embu-Meru highway corridor"
+      },
+      {
+        "name": "Runyenjes",
+        "lat": -0.363,
+        "lng": 37.558,
+        "altitude_m": 1720,
+        "rainfall_offset": 1.03,
+        "notes": "Runyenjes division centre; upper Kyeni"
+      },
+      {
+        "name": "Mbeti",
+        "lat": -0.39,
+        "lng": 37.52,
+        "altitude_m": 1660,
+        "rainfall_offset": 0.94,
+        "notes": "Lower Mbeti sub-location; drier edge of catchment"
+      },
+      {
+        "name": "Kagaari",
+        "lat": -0.358,
+        "lng": 37.572,
+        "altitude_m": 1740,
+        "rainfall_offset": 1.06,
+        "notes": "Upper Kagaari; forest edge zone, highest yields"
+      },
+      {
+        "name": "Ena",
+        "lat": -0.38,
+        "lng": 37.548,
+        "altitude_m": 1695,
+        "rainfall_offset": 1.01,
+        "notes": "Ena River watershed; fertile alluvial soils"
+      }
+    ]
+  },
+  "season_structure": {
+    "anchor": "July\u2013June",
+    "label": "ending calendar year (2024 = Jul 2023 \u2013 Jun 2024)",
+    "months": [
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun"
+    ],
+    "minibonus_months": [
+      "Jul",
+      "Aug",
+      "Sep",
+      "Nov",
+      "Dec"
+    ],
+    "pruning_months": [
+      "Jun",
+      "Aug"
+    ],
+    "annual_bonus_month": "Jun",
+    "season_month_index": {
+      "Jul": 0,
+      "Aug": 1,
+      "Sep": 2,
+      "Oct": 3,
+      "Nov": 4,
+      "Dec": 5,
+      "Jan": 6,
+      "Feb": 7,
+      "Mar": 8,
+      "Apr": 9,
+      "May": 10,
+      "Jun": 11
+    }
+  },
+  "agronomic_rules": {
+    "pruning_suppression": "45% yield in pruning month",
+    "recovery_month_1": "78% of normal",
+    "recovery_month_2": "108% (flush)",
+    "recovery_month_3plus": "100% (normalised)",
+    "fertiliser_lag": "+11% at month+1, +6% at month+2 per 50kg applied",
+    "rainfall_optimum_mm": "varies by collection centre (~112\u2013120mm/month)"
+  },
+  "pricing_calibration": {
+    "source": "Calibrated to Rukuriri real bonus data",
+    "rukuriri_bonus_2024": "KES 57.50/kg (18,751,307 kg processed)",
+    "monthly_rate_2011": "~KES 18.50/kg",
+    "monthly_rate_2024": "~KES 32.00/kg",
+    "rukuriri_fairtrade_premium": "~3%"
+  }
+}

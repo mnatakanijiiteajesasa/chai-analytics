@@ -1,0 +1,41 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: chaimterics_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./data:/seed:ro          # seed JSON files mounted read-only
+    environment:
+      MONGO_INITDB_DATABASE: chaimterics
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ml_engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.ml
+    container_name: chaimterics_ml
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/chaimterics
+      OLLAMA_HOST: http://172.20.0.1:11434
+      DATA_DIR: /app/data
+    volumes:
+      - ./scripts:/app/scripts
+      - ./models:/app/models
+      - ./data:/app/data:ro
+    # Keep alive for interactive use during Phase 1 development
+    command: ["tail", "-f", "/dev/null"]
+
+
+volumes:
+  mongo_data:

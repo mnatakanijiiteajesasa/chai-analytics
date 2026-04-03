@@ -1,0 +1,26 @@
+# Core ML
+xgboost==2.1.1
+lightgbm==4.5.0
+statsmodels==0.14.4
+pmdarima==2.0.4          # auto_arima wrapper for SARIMA
+scikit-learn==1.5.2
+
+# Data
+pandas==2.2.3
+numpy==1.26.4
+
+# Storage
+pymongo==4.9.2
+joblib==1.4.2
+
+# HTTP (weather fetch + Ollama calls)
+requests==2.32.3
+
+# API (Phase 1 Flask — install now to avoid conflicts later)
+flask==3.1.0
+flask-jwt-extended==4.7.1
+gunicorn==23.0.0
+
+# Torch (install stub now; full LSTM in Phase 4)
+# Uncomment if you have the GPU RAM. Otherwise leave commented for Phase 1.
+# torch==2.4.1
