@@ -14,6 +14,7 @@ pymongo==4.9.2
 joblib==1.4.2
 
 # HTTP (weather fetch + Ollama calls)
+pyarrow==17.0.0
 requests==2.32.3
 
 # API (Phase 1 Flask — install now to avoid conflicts later)
