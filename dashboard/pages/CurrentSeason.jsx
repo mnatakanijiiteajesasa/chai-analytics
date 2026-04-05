@@ -1,6 +1,6 @@
 // CurrentSeason.jsx
 import { useState, useEffect } from 'react'
-import { fetchFarm } from '../lib/api'
+import { fetchFarm } from '../src/lib/api'
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine

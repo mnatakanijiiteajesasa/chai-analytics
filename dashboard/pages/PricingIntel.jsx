@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchPricingTrends } from '../lib/api'
+import { fetchPricingTrends } from '../src/lib/api'
 import {
   LineChart, Line, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend

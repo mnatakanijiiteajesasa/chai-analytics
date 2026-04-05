@@ -1,6 +1,6 @@
 // HistoricalTrends.jsx
 import { useState, useEffect } from 'react'
-import { fetchFarm } from '../lib/api'
+import { fetchFarm } from '../src/lib/api'
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
