@@ -49,7 +49,7 @@ def create_app() -> Flask:
 
     @app.route("/health")
     def health():
-        return jsonify({"status": "ok", "service": "ChaiMetrics API v1"})
+        return jsonify({"status": "ok", "service": "ChaiMetrics"})
 
     return app
 
