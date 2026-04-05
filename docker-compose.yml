@@ -29,13 +29,39 @@ services:
       MONGODB_URI: mongodb://mongo:27017/chaimterics
       OLLAMA_HOST: http://172.20.0.1:11434
       DATA_DIR: /app/data
+      MODELS_DIR: /app/models
     volumes:
       - ./scripts:/app/scripts
       - ./models:/app/models
       - ./data:/app/data:ro
     # Keep alive for interactive use during Phase 1 development
     command: ["tail", "-f", "/dev/null"]
-
+  
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.ml
+    container_name: chaimterics_api
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/chaimterics
+      OLLAMA_HOST: http://172.20.0.1:11434
+      OLLAMA_MODEL: qwen
+      DATA_DIR: /app/data
+      MODELS_DIR: /app/models
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-change-in-prod}
+      FLASK_ENV: development
+    volumes:
+      - ./api:/app/api
+      - ./models:/app/models
+      - ./data:/app/data:ro
+    command: ["python", "-m", "flask", "--app", "api.app:create_app", "run", "--host", "0.0.0.0", "--port", "5000", "--debug"]
+ 
 
 volumes:
   mongo_data:

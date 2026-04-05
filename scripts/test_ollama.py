@@ -29,9 +29,9 @@ from rule_engine import run_pipeline
 
 MONGODB_URI  = os.getenv("MONGODB_URI",  "mongodb://localhost:27017/chaimterics")
 OLLAMA_HOST  = os.getenv("OLLAMA_HOST",  "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen:0.5b")
 
-# ── Prompt template ───────────────────────────────────────────────────────────
+#  Prompt template 
 SYSTEM_PROMPT = """You are a farm advisor assistant for KTDA smallholder tea farmers in Kenya.
 You will be given a structured JSON object containing data about a specific farm:
 its current season performance, a yield prediction, a 6-month yield forecast, and a list of recommendations.
@@ -60,24 +60,27 @@ def build_prompt(pipeline_result: dict) -> str:
     score    = pipeline_result.get("performance_score", 0)
 
     # Compact representation — only what the LLM needs for the narrative
+    # Keep compact — Mistral on 8GB RAM needs a short prompt
+    top_recs = sorted(recs, key=lambda r: {"high":0,"medium":1,"low":2}[r["priority"]])[:2]
+    fc_summary = None
+    if sarima:
+        fc = sarima["forecast_6mo"]
+        fc_summary = f"{round(fc[0],0):.0f}-{round(fc[2],0):.0f}kg over next 3 months"
+
     compact = {
-        "farm_name":          farm.get("name"),
-        "owner_name":         farm.get("owner_name"),
-        "factory":            farm.get("factory_code"),
-        "collection_centre":  farm.get("collection_centre"),
-        "hectares":           farm.get("hectares"),
-        "fairtrade":          farm.get("fairtrade"),
-        "season_year":        current.get("season_year"),
-        "total_kg_so_far":    round(current.get("total_kg", 0), 1),
-        "months_complete":    current.get("months_complete"),
-        "season_avg_monthly_kg": round(current.get("season_avg_kg", 0), 1) if current.get("season_avg_kg") else None,
-        "xgb_predicted_kg":   round(xgb.get("predicted_kg", 0), 1) if xgb.get("predicted_kg") else None,
-        "xgb_month":          xgb.get("month_name"),
-        "sarima_forecast_6mo": [round(v, 1) for v in sarima["forecast_6mo"]] if sarima else None,
-        "performance_score":  score,
-        "recommendations":    [
-            {"priority": r["priority"], "title": r["title"], "action": r["action"]}
-            for r in recs
+        "farm":           f"{farm.get('name')} ({farm.get('owner_name')})",
+        "factory":        farm.get("factory_code"),
+        "centre":         farm.get("collection_centre"),
+        "hectares":       farm.get("hectares"),
+        "season":         current.get("season_year"),
+        "total_kg":       round(current.get("total_kg", 0)),
+        "avg_monthly_kg": round(current.get("season_avg_kg", 0)) if current.get("season_avg_kg") else None,
+        "xgb_next_month": f"{round(xgb.get('predicted_kg', 0))}kg in {xgb.get('month_name','')}",
+        "forecast":       fc_summary,
+        "score":          score,
+        "top_recommendations": [
+            f"[{r['priority'].upper()}] {r['title']}: {r['action']}"
+            for r in top_recs
         ],
     }
 
@@ -95,9 +98,10 @@ def call_ollama(prompt: str, model: str = OLLAMA_MODEL,
         "prompt": prompt,
         "stream": False,
         "options": {
-            "temperature":    0.3,   # low temperature for factual narrative
-            "num_predict":    400,   # ~200 words max
-            "top_p":          0.9,
+            "temperature": 0.3,
+            "num_predict": 250,    # ~150 words — keep short for RAM
+            "num_ctx":     1024,   # cap context window to reduce VRAM pressure
+            "top_p":       0.9,
         }
     }
     t0 = time.time()

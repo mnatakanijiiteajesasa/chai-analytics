@@ -1,0 +1,286 @@
+"""
+api/blueprints/insights.py
+
+GET /farms/<member_no>/insights
+    Runs the full pipeline: XGBoost prediction + SARIMA forecast +
+    rule engine + optional Ollama narrative.
+    Results cached in model_outputs collection.
+
+Query params:
+    refresh     true  — force recompute even if cache is fresh
+    narrative   true  — include Ollama LLM narrative (slower, ~5-10s)
+    month_idx   0-11  — season month to predict for (default: current)
+"""
+
+import sys
+import json
+import time
+from datetime import datetime
+from pathlib import Path
+from dataclasses import asdict
+
+import numpy as np
+import requests as http_requests
+from flask import Blueprint, request, jsonify, current_app
+from flask_jwt_extended import jwt_required
+
+from api.utils import get_db, get_models, get_sarima_meta, get_pricing_meta
+
+insights_bp = Blueprint("insights", __name__)
+
+SEASON_MONTH_NAMES = ["Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun"]
+MINIBONUS_MONTHS   = {0, 1, 2, 4, 5}
+
+
+def _current_month_idx() -> int:
+    """Return the current season_month_idx based on today's calendar month."""
+    month_to_idx = {7:0,8:1,9:2,10:3,11:4,12:5,1:6,2:7,3:8,4:9,5:10,6:11}
+    return month_to_idx.get(datetime.utcnow().month, 6)
+
+
+def _get_current_season_summary(farm: dict) -> dict:
+    seasons = sorted(farm.get("historical_seasons", []), key=lambda s: s["season_year"])
+    if not seasons:
+        return {}
+    latest = seasons[-1]
+    kg     = [k for k in latest.get("monthly_kg", []) if k is not None]
+    earn   = [e for e in latest.get("monthly_earn", []) if e is not None]
+    return {
+        "season_year":     latest["season_year"],
+        "monthly_kg":      latest.get("monthly_kg", []),
+        "monthly_earn":    latest.get("monthly_earn", []),
+        "total_kg":        round(sum(kg), 1),
+        "total_earnings":  round(sum(earn), 2),
+        "months_complete": len(kg),
+        "last_month_kg":   kg[-1] if kg else None,
+        "season_avg_kg":   round(float(np.mean(kg)), 1) if kg else None,
+        "yearly_bonus":    latest.get("yearly_bonus", 0),
+    }
+
+
+def _run_xgb_prediction(farm: dict, models: dict, month_idx: int) -> dict:
+    try:
+        X    = models["X"]
+        ids  = models["row_ids"]
+        mask = ids["ktda_member_no"] == farm["ktda_member_no"]
+        if not mask.any():
+            return {"error": "farm not in feature matrix"}
+
+        farm_ids = ids[mask]
+        latest_season = farm_ids["season_year"].max()
+        month_mask = (
+            (farm_ids["season_year"] == latest_season) &
+            (farm_ids["season_month_idx"] == month_idx)
+        )
+        if not month_mask.any():
+            month_mask = farm_ids["season_year"] == latest_season
+
+        X_row    = X[mask][month_mask].iloc[[-1]]
+        X_scaled = models["preprocessor"].transform(X_row)
+        pred_kg  = float(models["xgb"].predict(X_scaled)[0])
+
+        top_features = models["importances"].head(5)[["feature","importance"]].to_dict("records")
+
+        return {
+            "predicted_kg": round(max(0.0, pred_kg), 1),
+            "month_idx":    month_idx,
+            "month_name":   SEASON_MONTH_NAMES[month_idx],
+            "top_features": top_features,
+        }
+    except Exception as e:
+        return {"error": str(e)[:200]}
+
+
+def _build_recommendations(farm: dict, xgb: dict, sarima_meta: dict | None,
+                            pricing_meta: dict) -> list[dict]:
+    recs    = []
+    current = _get_current_season_summary(farm)
+    ha      = float(farm.get("hectares", 1.0))
+
+    # Yield gap
+    if xgb.get("predicted_kg") and current.get("season_avg_kg"):
+        pred   = xgb["predicted_kg"]
+        actual = current["season_avg_kg"]
+        gap    = (pred - actual) / pred * 100 if pred > 0 else 0
+        if gap > 30:
+            recs.append({"priority":"high","category":"yield",
+                "title":"Yield significantly below model expectation",
+                "detail":f"Average {actual}kg/mo vs expected {pred}kg/mo — {gap:.0f}% gap.",
+                "action":"Review fertiliser schedule and check for pest or soil pH issues."})
+        elif gap > 15:
+            recs.append({"priority":"medium","category":"yield",
+                "title":"Yield slightly below model expectation",
+                "detail":f"Average {actual}kg/mo vs expected {pred}kg/mo — {gap:.0f}% gap.",
+                "action":"Monitor closely. Consider soil test before next fertiliser application."})
+
+    # Forecast drop
+    if sarima_meta and sarima_meta.get("status") == "ok":
+        fc  = sarima_meta.get("forecast_6mo", [])
+        if fc and current.get("last_month_kg"):
+            drop = (current["last_month_kg"] - np.mean(fc)) / current["last_month_kg"] * 100
+            if drop > 20:
+                recs.append({"priority":"medium","category":"yield",
+                    "title":"Forecast shows expected yield decline",
+                    "detail":f"SARIMA projects avg {np.mean(fc):.0f}kg/mo over next 6 months.",
+                    "action":"Check seasonal pattern. If unexpected, review pruning and input plan."})
+
+    # Minibonus approaching
+    mi = xgb.get("month_idx", 6)
+    upcoming_mini = [SEASON_MONTH_NAMES[(mi+i) % 12] for i in range(1,4)
+                     if (mi+i) % 12 in MINIBONUS_MONTHS]
+    if upcoming_mini:
+        recs.append({"priority":"low","category":"pricing",
+            "title":f"Minibonus month(s) approaching: {', '.join(upcoming_mini)}",
+            "detail":"KTDA minibonus paid in Jul, Aug, Sep, Nov, Dec.",
+            "action":"Prioritise plucking rounds in minibonus months for maximum income."})
+
+    # Fertiliser driver
+    top_feat_names = [f["feature"] for f in xgb.get("top_features",[])]
+    if any(f in top_feat_names for f in ("fert_kg","fert_lag1_kg")):
+        recs.append({"priority":"medium","category":"input",
+            "title":"Fertiliser is a top yield driver for this farm",
+            "detail":"XGBoost ranks fertiliser among the top predictors of yield variance.",
+            "action":f"Ensure NPK/CAN on schedule (~{50*ha:.0f}kg total for your {ha:.1f}ha)."})
+
+    if not recs:
+        recs.append({"priority":"low","category":"yield",
+            "title":"Farm performing within expected range",
+            "detail":"No significant anomalies detected.",
+            "action":"Maintain current management practices."})
+
+    return recs
+
+
+def _call_ollama(pipeline_result: dict, host: str, model: str) -> str | None:
+    farm    = pipeline_result["farm"]
+    current = pipeline_result["current_season"]
+    xgb     = pipeline_result["xgb_prediction"]
+    sarima  = pipeline_result.get("sarima_forecast")
+    recs    = pipeline_result["recommendations"]
+    score   = pipeline_result["performance_score"]
+
+    top_recs = sorted(recs, key=lambda r: {"high":0,"medium":1,"low":2}[r["priority"]])[:2]
+    fc_str   = None
+    if sarima:
+        fc = sarima["forecast_6mo"]
+        fc_str = f"{round(np.mean(fc[:3])):.0f}kg avg over next 3 months"
+
+    compact = {
+        "farm":           f"{farm.get('name')} ({farm.get('owner_name')})",
+        "factory":        farm.get("factory_code"),
+        "centre":         farm.get("collection_centre"),
+        "hectares":       farm.get("hectares"),
+        "season":         current.get("season_year"),
+        "total_kg":       round(current.get("total_kg", 0)),
+        "avg_monthly_kg": round(current.get("season_avg_kg", 0)) if current.get("season_avg_kg") else None,
+        "xgb_next_month": f"{round(xgb.get('predicted_kg',0))}kg in {xgb.get('month_name','')}",
+        "forecast":       fc_str,
+        "score":          score,
+        "top_recommendations": [
+            f"[{r['priority'].upper()}] {r['title']}: {r['action']}"
+            for r in top_recs
+        ],
+    }
+
+    system = "You are a KTDA tea farm advisor. Write a 3-paragraph plain-language summary for the farmer using only the data provided. No bullet points. Under 150 words. Warm, direct tone. End with one clear action."
+    prompt = system + "\n\nFarm data:\n" + json.dumps(compact, indent=2)
+
+    try:
+        resp = http_requests.post(
+            f"{host}/api/generate",
+            json={
+                "model":  model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {"temperature":0.3,"num_predict":250,"num_ctx":1024,"top_p":0.9},
+            },
+            timeout=60,
+        )
+        resp.raise_for_status()
+        return resp.json().get("response", "").strip()
+    except Exception as e:
+        return f"[Narrative unavailable: {e}]"
+
+
+@insights_bp.route("/<member_no>/insights", methods=["GET"])
+@jwt_required()
+def get_insights(member_no: str):
+    db = get_db()
+
+    farm = db.farms.find_one({"ktda_member_no": member_no}, {"_id": 0})
+    if not farm:
+        return jsonify({"error": f"Farm {member_no} not found"}), 404
+
+    refresh   = request.args.get("refresh",   "false").lower() == "true"
+    narrative = request.args.get("narrative", "false").lower() == "true"
+    month_idx = int(request.args.get("month_idx", _current_month_idx()))
+
+    #  Cache check 
+    if not refresh:
+        cached = db.model_outputs.find_one({"ktda_member_no": member_no}, {"_id": 0})
+        if cached and not narrative:
+            cached["from_cache"] = True
+            return jsonify(cached)
+
+    #  Run pipeline 
+    t0      = time.time()
+    models  = get_models()
+    current = _get_current_season_summary(farm)
+    xgb     = _run_xgb_prediction(farm, models, month_idx)
+    sarima  = get_sarima_meta(member_no, farm["factory_code"])
+    pricing = get_pricing_meta(farm["factory_code"])
+    recs    = _build_recommendations(farm, xgb, sarima, pricing)
+
+    # Score
+    score = 80
+    for r in recs:
+        score -= {"high":20,"medium":8,"low":0}[r["priority"]]
+    score = max(0, min(100, score))
+
+    sarima_forecast = None
+    if sarima and sarima.get("status") == "ok":
+        sarima_forecast = {
+            "forecast_6mo":  sarima["forecast_6mo"],
+            "ci_80_lower":   sarima["ci_80_lower"],
+            "ci_80_upper":   sarima["ci_80_upper"],
+        }
+
+    result = {
+        "ktda_member_no":  member_no,
+        "farm": {
+            "ktda_member_no":    farm["ktda_member_no"],
+            "name":              farm.get("name"),
+            "owner_name":        farm.get("owner_name"),
+            "factory_code":      farm["factory_code"],
+            "collection_centre": farm["collection_centre"],
+            "hectares":          farm.get("hectares"),
+            "altitude_m":        farm.get("altitude_m"),
+            "fairtrade":         farm.get("fairtrade_certified"),
+        },
+        "current_season":   current,
+        "xgb_prediction":   xgb,
+        "sarima_forecast":  sarima_forecast,
+        "pricing_forecast": {k: v.get("forecast", [])[:6] for k, v in pricing.items()},
+        "recommendations":  recs,
+        "performance_score": score,
+        "computed_at":      datetime.utcnow().isoformat(),
+        "elapsed_seconds":  round(time.time() - t0, 2),
+        "from_cache":       False,
+    }
+
+    # ── Optional Ollama narrative ─────────────────────────────────────────────
+    if narrative:
+        result["narrative"] = _call_ollama(
+            result,
+            host  = current_app.config["OLLAMA_HOST"],
+            model = current_app.config["OLLAMA_MODEL"],
+        )
+
+    # ── Cache result ──────────────────────────────────────────────────────────
+    db.model_outputs.replace_one(
+        {"ktda_member_no": member_no},
+        result,
+        upsert=True,
+    )
+
+    return jsonify(result)
