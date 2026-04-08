@@ -1,9 +1,7 @@
 """
 ChaiMetrics Flask API — app factory.
 
-Start locally (WSL host or inside ml_engine container):
-    python api/app.py
-
+also hosted on docker in its own comtainer
 Production (gunicorn):
     gunicorn "api.app:create_app()" --bind 0.0.0.0:5000 --workers 2
 """
@@ -12,14 +10,15 @@ import os
 from flask import Flask, jsonify
 from flask_jwt_extended import JWTManager
 
-from api.blueprints.farms    import farms_bp
-from api.blueprints.insights import insights_bp
-from api.blueprints.pricing  import pricing_bp
-from api.blueprints.auth     import auth_bp
-
+from blueprints.farms    import farms_bp
+from blueprints.insights import insights_bp
+from blueprints.pricing  import pricing_bp
+from blueprints.auth     import auth_bp
+from flask_cors import CORS
 
 def create_app() -> Flask:
     app = Flask(__name__)
+    CORS(app)
 
     #  Config 
     app.config["JWT_SECRET_KEY"]          = os.getenv("JWT_SECRET_KEY", "dev-secret-change-in-prod")

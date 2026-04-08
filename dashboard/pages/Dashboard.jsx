@@ -46,7 +46,7 @@ export default function Dashboard() {
 
   return (
     <div className="layout">
-      {/* ── Sidebar ────────────────────────────────────────────── */}
+      {/* ── Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-logo">
           <div className="sidebar-logo-mark">ChaiMetrics</div>
@@ -103,7 +103,7 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      {/* ── Main content ───────────────────────────────────────── */}
+      {/*  Main content  */}
       <main className="main-content">
         <Routes>
           <Route path="/insights"   element={<AIInsights   memberNo={selectedMember} />} />

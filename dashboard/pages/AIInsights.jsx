@@ -132,7 +132,7 @@ function RecCard({ rec }) {
   )
 }
 
-// ── Main page ──────────────────────────────────────────────────────
+//  Main page 
 
 export default function AIInsights({ memberNo }) {
   const [data,        setData]        = useState(null)
@@ -189,7 +189,7 @@ export default function AIInsights({ memberNo }) {
 
   return (
     <div className="fade-in">
-      {/* ── Header ─────────────────────────────────────────────── */}
+      {/*  Header  */}
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
@@ -212,7 +212,7 @@ export default function AIInsights({ memberNo }) {
         )}
       </div>
 
-      {/* ── Stat tiles ─────────────────────────────────────────── */}
+      {/*  Stat tiles  */}
       <div className="stat-grid">
         <div className="stat-tile">
           <div className="stat-label">Season total</div>
@@ -246,7 +246,7 @@ export default function AIInsights({ memberNo }) {
         </div>
       </div>
 
-      {/* ── Two column: forecast + feature importance ───────────── */}
+      {/*  Two column: forecast + feature importance  */}
       <div className="two-col" style={{ marginBottom: '1.25rem' }}>
         <div className="card">
           <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -267,7 +267,7 @@ export default function AIInsights({ memberNo }) {
         </div>
       </div>
 
-      {/* ── Recommendations ────────────────────────────────────── */}
+      {/*  Recommendations  */}
       <div className="card" style={{ marginBottom: '1.25rem' }}>
         <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <AlertTriangle size={11} /> Recommendations ({recs.length})
@@ -277,7 +277,7 @@ export default function AIInsights({ memberNo }) {
         </div>
       </div>
 
-      {/* ── LLM Narrative ──────────────────────────────────────── */}
+      {/*  LLM Narrative  */}
       <div className="card">
         <div className="card-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
