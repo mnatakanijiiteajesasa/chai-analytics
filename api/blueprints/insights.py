@@ -24,7 +24,7 @@ import requests as http_requests
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required
 
-from api.utils import get_db, get_models, get_sarima_meta, get_pricing_meta
+from utils import get_db, get_models, get_sarima_meta, get_pricing_meta
 
 insights_bp = Blueprint("insights", __name__)
 

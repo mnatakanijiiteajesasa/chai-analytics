@@ -10,7 +10,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from api.utils import get_db, farm_summary
+from utils import get_db, farm_summary
 
 farms_bp = Blueprint("farms", __name__)
 

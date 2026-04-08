@@ -13,7 +13,7 @@ GET /pricing/centres
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
-from api.utils import get_db, get_pricing_meta
+from utils import get_db, get_pricing_meta
 
 pricing_bp = Blueprint("pricing", __name__)
 
