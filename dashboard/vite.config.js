@@ -7,11 +7,11 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     proxy: {
-      'api': {
-        target: 'http://api/5000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, "")
+      '/auth':    { target: 'http://api:5000', changeOrigin: true },
+      '/farms':   { target: 'http://api:5000', changeOrigin: true },
+      '/pricing': { target: 'http://api:5000', changeOrigin: true },
       }
     }
-  }
-})
+  })
+
+  

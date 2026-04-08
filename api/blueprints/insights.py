@@ -22,7 +22,7 @@ from dataclasses import asdict
 import numpy as np
 import requests as http_requests
 from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from utils import get_db, get_models, get_sarima_meta, get_pricing_meta
 
@@ -205,6 +205,8 @@ def _call_ollama(pipeline_result: dict, host: str, model: str) -> str | None:
 @insights_bp.route("/<member_no>/insights", methods=["GET"])
 @jwt_required()
 def get_insights(member_no: str):
+    current_user = get_jwt_identity
+    
     db = get_db()
 
     farm = db.farms.find_one({"ktda_member_no": member_no}, {"_id": 0})
@@ -268,7 +270,7 @@ def get_insights(member_no: str):
         "from_cache":       False,
     }
 
-    # ── Optional Ollama narrative ─────────────────────────────────────────────
+    #  Optional Ollama narrative 
     if narrative:
         result["narrative"] = _call_ollama(
             result,
@@ -276,7 +278,7 @@ def get_insights(member_no: str):
             model = current_app.config["OLLAMA_MODEL"],
         )
 
-    # ── Cache result ──────────────────────────────────────────────────────────
+    #  Cache result 
     db.model_outputs.replace_one(
         {"ktda_member_no": member_no},
         result,

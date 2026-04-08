@@ -11,7 +11,7 @@ GET /pricing/centres
 """
 
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from utils import get_db, get_pricing_meta
 
@@ -24,6 +24,7 @@ MINIBONUS_MONTHS   = {0, 1, 2, 4, 5}
 @pricing_bp.route("/trends/<factory_code>", methods=["GET"])
 @jwt_required()
 def pricing_trends(factory_code: str):
+    current_user = get_jwt_identity
     db = get_db()
 
     valid_factories = db.ktda_pricing.distinct("factory_code")

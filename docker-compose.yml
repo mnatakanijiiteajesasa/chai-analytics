@@ -48,7 +48,8 @@ services:
       - mongo
     environment:
       - ML_URL=http://ml_engine:5000
-      - MONGODB_URI:mongodb://mongo:27017/chaimterics
+      - MONGODB_URI=mongodb://mongo:27017/chaimterics
+      - JWT_SECRET_KEY=chaimterics-super-secret-key-32bytes!!
   dashboard:
     build: 
       context: ./dashboard
@@ -60,8 +61,7 @@ services:
     ports:
       - "5173:5173"
     # prevents host node_modules from overriding container's
-    environment:
-      - VITE_API_URL=http://api:5000
+      # - VITE_API_URL=http://api:5000
 
 volumes:
   mongo_data:

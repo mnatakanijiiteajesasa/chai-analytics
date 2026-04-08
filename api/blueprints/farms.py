@@ -27,6 +27,8 @@ def list_farms():
         page        default 1
         per_page    default 20, max 100
     """
+    current_user = get_jwt_identity
+
     db = get_db()
 
     factory = request.args.get("factory")
@@ -72,6 +74,7 @@ def get_farm(member_no: str):
     Returns full farm document including season history summary.
     Excludes raw monthly arrays to keep payload manageable.
     """
+    current_user = get_jwt_identity
     db   = get_db()
     farm = db.farms.find_one({"ktda_member_no": member_no}, {"_id": 0})
     if not farm:
@@ -112,6 +115,7 @@ def post_daily(member_no: str):
     Invalidates the model_outputs cache for this farm so the next
     /insights call recomputes fresh predictions.
     """
+    current_user = get_jwt_identity
     db   = get_db()
     farm = db.farms.find_one({"ktda_member_no": member_no}, {"_id": 1})
     if not farm:

@@ -17,7 +17,7 @@ from utils import get_db
 auth_bp = Blueprint("auth", __name__)
 
 
-@auth_bp.route("/login", methods=["POST"])
+@auth_bp.route("/login", methods=["POST"], strict_slashes=False)
 def login():
     body = request.get_json(silent=True) or {}
     member_no = body.get("ktda_member_no", "").strip()
@@ -37,11 +37,7 @@ def login():
     if password != member_no:
         return jsonify({"error": "invalid credentials"}), 401
 
-    token = create_access_token(identity={
-        "ktda_member_no": farm["ktda_member_no"],
-        "factory_code":   farm["factory_code"],
-        "name":           farm.get("name", ""),
-    })
+    token = create_access_token(identity=farm["ktda_member_no"])
 
     return jsonify({
         "access_token":   token,

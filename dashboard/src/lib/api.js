@@ -1,6 +1,6 @@
-// src/lib/api.js — ChaiMetrics API client
+// ChaiMetrics API client
 
-const BASE = ''  // proxied through vite dev server
+const BASE = 'http://localhost:5000'   // proxied through vite dev server
 
 function getToken() {
   return localStorage.getItem('chai_token')
@@ -45,6 +45,8 @@ export async function login(memberNo, password) {
     method: 'POST',
     body: JSON.stringify({ ktda_member_no: memberNo, password }),
   })
+  console.log('login response:', data) 
+  console.log('access_token:', data.access_token) 
   setToken(data.access_token)
   localStorage.setItem('chai_member', JSON.stringify({
     ktda_member_no: data.ktda_member_no,
@@ -104,3 +106,4 @@ export function fetchPricingTrends(factoryCode) {
 export function fetchCentres() {
   return request('/pricing/centres')
 }
+
