@@ -65,6 +65,30 @@ def list_farms():
         "farms":    [farm_summary(f) for f in farms],
     })
 
+@farms_bp.route("/all", methods=["GET"])
+@jwt_required()
+def list_all_farms():
+    """
+    GET /farms/all
+    Admin only — returns all farms for the farm selector dropdown.
+    """
+    from flask_jwt_extended import get_jwt
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
+
+    db = get_db()
+    farms = list(
+        db.farms.find({}, {
+            "_id": 0,
+            "ktda_member_no": 1,
+            "name": 1,
+            "owner_name": 1,
+            "factory_code": 1,
+            "collection_centre": 1,
+        }).sort("ktda_member_no", 1)
+    )
+    return jsonify({"farms": farms})
 
 @farms_bp.route("/<member_no>", methods=["GET"])
 @jwt_required()
@@ -164,27 +188,3 @@ def post_daily(member_no: str):
 
 
 
-@farms_bp.route("/all", methods=["GET"])
-@jwt_required()
-def list_all_farms():
-    """
-    GET /farms/all
-    Admin only — returns all farms for the farm selector dropdown.
-    """
-    from flask_jwt_extended import get_jwt
-    claims = get_jwt()
-    if claims.get("role") != "admin":
-        return jsonify({"error": "Unauthorized"}), 403
-
-    db = get_db()
-    farms = list(
-        db.farms.find({}, {
-            "_id": 0,
-            "ktda_member_no": 1,
-            "name": 1,
-            "owner_name": 1,
-            "factory_code": 1,
-            "collection_centre": 1,
-        }).sort("ktda_member_no", 1)
-    )
-    return jsonify({"farms": farms})
