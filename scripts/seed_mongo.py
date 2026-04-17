@@ -65,6 +65,25 @@ def load_json_object(path: Path) -> dict | None:
     with open(path) as f:
         return json.load(f)
 
+def seed_admin(db, drop_first: bool = False) -> bool:
+    """
+    Seed a default admin user into the admins collection.
+    """
+    col = db["admins"]
+    if drop_first:
+        col.drop()
+        print("  Dropped 'admins'.")
+
+    admin_doc = {
+        "username": "ktda_admin",
+        "password": "farmer1",
+        "name":     "KTDA Admin",
+        "role":     "admin",
+    }
+
+    col.replace_one({"username": "ktda_admin"}, admin_doc, upsert=True)
+    print("  Seeded admin user: username=ktda_admin, password=admin123")
+    return True
 
 def seed_array_collection(db, name: str, docs: list, drop_first: bool = False) -> int:
     if not docs:
@@ -177,7 +196,10 @@ def main():
     # 2. Metadata: synthetic_metadata.json -> factory_metadata
     print(f"\nLoading {METADATA_FILE.name} -> '{METADATA_COLLECTION}' ...")
     seed_metadata(db, drop_first=drop)
-
+    
+    print(f"\nSeeding admin user into 'admins' collection ...")
+    seed_admin(db, drop_first=drop)
+    
     # 3. Indexes
     create_indexes(db)
 

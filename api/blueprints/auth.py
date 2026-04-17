@@ -27,6 +27,21 @@ def login():
         return jsonify({"error": "ktda_member_no is required"}), 400
 
     db   = get_db()
+    #check admins collections first
+    admin = db.admins.finf_one({"username": member_no}, {"_id": 0, "username": 1, "role": 1})
+    if admin:
+        if password != admin(password):
+            return jsonify({"error": "invalid credentials"}), 401
+
+        token =creat_access_token(identity=admin["username"])
+        return jsonify({
+            "access_token": token,
+            "role": "admin",
+            "name": admin.get("name", "admin"),
+            })
+    
+    #fall to farmers check
+    
     farm = db.farms.find_one({"ktda_member_no": member_no}, {"_id": 0, "ktda_member_no": 1,
                                                                "name": 1, "factory_code": 1})
     if not farm:
@@ -56,3 +71,11 @@ def me():
         return jsonify(get_jwt_identity())
     except Exception as e:
         return jsonify({"error": str(e)}), 401
+
+@auth_bp.route('/farms', methods=['GET'])
+@jwt_required
+def get_all_farms():
+    if current_user['role'] != 'admin':
+        return jsonify({"error": "Unauthorized"}), 403
+    farms = list(db.farms.find({}, {"_id": 0, "ktda_member_no": 1, "name": 1, "owner_name": 1}))
+    return jsonify(farms)
