@@ -26,7 +26,9 @@ from pathlib import Path
 from pymongo import MongoClient, ASCENDING
 from pymongo.errors import BulkWriteError
 
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://maggie:6688diggy@diggy.rug2w.mongodb.net/chaimterics?retryWrites=true&w=majority&appName=Diggy")
+MONGODB_URI = os.getenv("MONGODB_URI")
+if not MONGODB_URI:
+    raise RuntimeError("MONGODB_URI environment variable is not set")
 DATA_DIR      = Path(os.getenv("DATA_DIR", str(Path(__file__).resolve().parent.parent / "data")))
 
 # Array collections — each file contains a JSON array of documents
