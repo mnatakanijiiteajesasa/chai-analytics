@@ -91,7 +91,7 @@ def build_prompt(pipeline_result: dict) -> str:
     return SYSTEM_PROMPT + "\n\nFarm data:\n" + json.dumps(compact, indent=2)
 
 
-def call_ollama(prompt: str, model: str = GROQ_MODEL, host: str = None) -> tuple[str, float]:
+def call_groq(prompt: str, model: str = GROQ_MODEL, host: str = None) -> tuple[str, float]:
     t0 = time.time()
     try:
         client = Groq(api_key=GROQ_API_KEY)
@@ -105,6 +105,10 @@ def call_ollama(prompt: str, model: str = GROQ_MODEL, host: str = None) -> tuple
             max_tokens=250,
         )
         narrative = response.choices[0].message.content.strip()
+
+        # Strip <think>...</think> reasoning block
+        narrative = re.sub(r'<think>.*?</think>', '', narrative, flags=re.DOTALL).strip()
+        
         elapsed   = time.time() - t0
         return narrative, elapsed
     except Exception as e:
@@ -132,7 +136,7 @@ def generate_narrative(member_no: str, month_idx: int = 6,
     }
 
 
-def check_ollama_health(host: str = None) -> bool:
+def check_grok_health(host: str = None) -> bool:
     try:
         client = Groq(api_key=GROQ_API_KEY)
         models = [m.id for m in client.models.list().data]
