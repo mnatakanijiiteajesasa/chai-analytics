@@ -10,7 +10,7 @@ Replace with a proper credential store before any real farmer data goes live.
 """
 
 from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token,jwt_required, get_jwt_identity
 
 from utils import get_db
 
