@@ -33,7 +33,7 @@ def login():
         if password != admin["password"]:
             return jsonify({"error": "invalid credentials"}), 401
 
-        token =creat_access_token(identity=admin["username"])
+        token =create_access_token(identity=admin["username"])
         return jsonify({
             "access_token": token,
             "role": "admin",
