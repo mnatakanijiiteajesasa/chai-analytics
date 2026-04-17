@@ -162,7 +162,9 @@ def post_daily(member_no: str):
 
     return jsonify({"status": "recorded", "record": record}), 201
 
-    @farms_bp.route("/all", methods=["GET"])
+
+
+@farms_bp.route("/all", methods=["GET"])
 @jwt_required()
 def list_all_farms():
     """
