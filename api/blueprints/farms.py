@@ -27,7 +27,7 @@ def list_farms():
         page        default 1
         per_page    default 20, max 100
     """
-    current_user = get_jwt_identity
+    current_user = get_jwt_identity()
 
     db = get_db()
 
@@ -74,7 +74,7 @@ def get_farm(member_no: str):
     Returns full farm document including season history summary.
     Excludes raw monthly arrays to keep payload manageable.
     """
-    current_user = get_jwt_identity
+    current_user = get_jwt_identity()
     db   = get_db()
     farm = db.farms.find_one({"ktda_member_no": member_no}, {"_id": 0})
     if not farm:
@@ -115,7 +115,7 @@ def post_daily(member_no: str):
     Invalidates the model_outputs cache for this farm so the next
     /insights call recomputes fresh predictions.
     """
-    current_user = get_jwt_identity
+    current_user = get_jwt_identity()
     db   = get_db()
     farm = db.farms.find_one({"ktda_member_no": member_no}, {"_id": 1})
     if not farm:
@@ -161,3 +161,28 @@ def post_daily(member_no: str):
     db.model_outputs.delete_one({"ktda_member_no": member_no})
 
     return jsonify({"status": "recorded", "record": record}), 201
+
+    @farms_bp.route("/all", methods=["GET"])
+@jwt_required()
+def list_all_farms():
+    """
+    GET /farms/all
+    Admin only — returns all farms for the farm selector dropdown.
+    """
+    from flask_jwt_extended import get_jwt
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
+
+    db = get_db()
+    farms = list(
+        db.farms.find({}, {
+            "_id": 0,
+            "ktda_member_no": 1,
+            "name": 1,
+            "owner_name": 1,
+            "factory_code": 1,
+            "collection_centre": 1,
+        }).sort("ktda_member_no", 1)
+    )
+    return jsonify({"farms": farms})
