@@ -205,7 +205,7 @@ def main():
 
     # 4. Summary
     print("\n-- Seed summary --")
-    for col_name in ("farms", "ktda_pricing", METADATA_COLLECTION, "weather_history", "model_outputs"):
+    for col_name in ("farms", "ktda_pricing", METADATA_COLLECTION, "weather_history", "model_outputs", "admins"):
         count = db[col_name].count_documents({})
         print(f"  {col_name:<20}: {count} documents")
 
