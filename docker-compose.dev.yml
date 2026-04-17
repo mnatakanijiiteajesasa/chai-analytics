@@ -1,0 +1,31 @@
+services:
+  ml_engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.ml
+    container_name: chaimterics_ml
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: ${MONGODB_URI}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL}
+      DATA_DIR: /app/data  
+      MODELS_DIR: /app/models
+    volumes:
+      - ./scripts:/app/scripts
+      - ./models:/app/models
+      - ./data:/app/data:ro
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: backend_api
+    ports:
+      - "5000:5000"
+    depends_on:
+      - ml_engine
+    environment:
+      - ML_URL=http://ml_engine:5000
+      - MONGODB_URI=${MONGODB_URI}
+      - JWT_SECRET_KEY=chaimterics-super-secret-key-32bytes!!

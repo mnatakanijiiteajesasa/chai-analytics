@@ -19,6 +19,7 @@ import json
 import argparse
 import time
 from pathlib import Path
+from groq import Groq
 
 import requests
 from pymongo import MongoClient
@@ -28,8 +29,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from rule_engine import run_pipeline
 
 MONGODB_URI  = os.getenv("MONGODB_URI",  "mongodb://localhost:27017/chaimterics")
-OLLAMA_HOST  = os.getenv("OLLAMA_HOST",  "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen:0.5b")
+#OLLAMA_HOST  = os.getenv("OLLAMA_HOST",  "http://localhost:11434")
+#OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen:0.5b")
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen-qwq-32b")
 
 #  Prompt template 
 SYSTEM_PROMPT = """You are a farm advisor assistant for KTDA smallholder tea farmers in Kenya.
@@ -87,43 +91,30 @@ def build_prompt(pipeline_result: dict) -> str:
     return SYSTEM_PROMPT + "\n\nFarm data:\n" + json.dumps(compact, indent=2)
 
 
-def call_ollama(prompt: str, model: str = OLLAMA_MODEL,
-                host: str = OLLAMA_HOST) -> tuple[str, float]:
-    """
-    POST to Ollama generate endpoint. Returns (narrative_text, elapsed_seconds).
-    """
-    url     = f"{host}/api/generate"
-    payload = {
-        "model":  model,
-        "prompt": prompt,
-        "stream": False,
-        "options": {
-            "temperature": 0.3,
-            "num_predict": 250,    # ~150 words — keep short for RAM
-            "num_ctx":     1024,   # cap context window to reduce VRAM pressure
-            "top_p":       0.9,
-        }
-    }
+def call_ollama(prompt: str, model: str = GROQ_MODEL, host: str = None) -> tuple[str, float]:
     t0 = time.time()
     try:
-        resp = requests.post(url, json=payload, timeout=60)
-        resp.raise_for_status()
-        data      = resp.json()
-        narrative = data.get("response", "").strip()
+        client = Groq(api_key=GROQ_API_KEY)
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user",   "content": prompt}
+            ],
+            temperature=0.3,
+            max_tokens=250,
+        )
+        narrative = response.choices[0].message.content.strip()
         elapsed   = time.time() - t0
         return narrative, elapsed
-    except requests.Timeout:
-        return "[ERROR] Ollama timed out after 60s. Is the model loaded?", time.time() - t0
-    except requests.ConnectionError as e:
-        return f"[ERROR] Cannot reach Ollama at {host}: {e}", time.time() - t0
     except Exception as e:
-        return f"[ERROR] {e}", time.time() - t0
+        return f"[ERROR] Groq API error: {e}", time.time() - t0
 
 
 def generate_narrative(member_no: str, month_idx: int = 6,
-                        model: str = OLLAMA_MODEL) -> dict:
+                        model: str = GROQ_MODEL) -> dict:
     """
-    Full pipeline: rule engine → prompt → Ollama → narrative.
+    Full pipeline: rule engine → prompt → GROQ → narrative.
     Returns dict with narrative + pipeline result + timing.
     """
     pipeline_result = run_pipeline(member_no, month_idx)
@@ -141,42 +132,35 @@ def generate_narrative(member_no: str, month_idx: int = 6,
     }
 
 
-def check_ollama_health(host: str = OLLAMA_HOST) -> bool:
+def check_ollama_health(host: str = None) -> bool:
     try:
-        resp = requests.get(f"{host}/api/tags", timeout=5)
-        resp.raise_for_status()
-        models = [m["name"] for m in resp.json().get("models", [])]
-        print(f"  Ollama reachable at {host}")
-        print(f"  Available models: {models}")
-        if not any(OLLAMA_MODEL in m for m in models):
-            print(f"  [WARN] '{OLLAMA_MODEL}' not found. Run: ollama pull {OLLAMA_MODEL}")
-            return False
+        client = Groq(api_key=GROQ_API_KEY)
+        models = [m.id for m in client.models.list().data]
+        print(f"  Groq reachable. Available models: {models[:5]}")
         return True
     except Exception as e:
-        print(f"  [FAIL] Ollama unreachable: {e}")
-        print(f"  Make sure Ollama is running: OLLAMA_HOST=0.0.0.0 ollama serve")
+        print(f"  [FAIL] Groq unreachable: {e}")
         return False
-
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--member",    type=str, required=True,
                         help="ktda_member_no, e.g. KTD-13033")
     parser.add_argument("--month-idx", type=int, default=6)
-    parser.add_argument("--model",     type=str, default=OLLAMA_MODEL,
-                        help="Ollama model name (default: mistral)")
+    parser.add_argument("--model",     type=str, default=GROQ_MODEL,
+                        help="GROQ model name (default: qwen-qwq-32b)")
     parser.add_argument("--prompt-only", action="store_true",
-                        help="Print the prompt that would be sent, without calling Ollama")
+                        help="Print the prompt that would be sent, without calling GROQ")
     args = parser.parse_args()
 
-    print("ChaiMetrics — Ollama LLM narrative test")
+    print("ChaiMetrics — GROQ LLM narrative test")
     print(f"  Member   : {args.member}")
     print(f"  Model    : {args.model}")
-    print(f"  Ollama   : {OLLAMA_HOST}")
+    print(f"  GROQ   : {GROQ_API_KEY}")
     print(f"  MongoDB  : {MONGODB_URI}\n")
 
     if not args.prompt_only:
-        print("Checking Ollama ...")
+        print("Checking GROQ ...")
         if not check_ollama_health():
             sys.exit(1)
 
@@ -189,11 +173,11 @@ def main():
     prompt = build_prompt(pipeline_result)
 
     if args.prompt_only:
-        print("\n-- Prompt that would be sent to Ollama --\n")
+        print("\n-- Prompt that would be sent to GROQ --\n")
         print(prompt)
         return
 
-    print(f"\nCalling Ollama ({args.model}) ...")
+    print(f"\nCalling GROQ ({args.model}) ...")
     narrative, elapsed = call_ollama(prompt, model=args.model)
 
     print(f"\n{'='*60}")
@@ -204,7 +188,7 @@ def main():
     print(f"\nGenerated in {elapsed:.1f}s")
 
     if elapsed > 8:
-        print(f"[NOTE] Response took {elapsed:.0f}s — consider llama3 if Mistral is slow on your hardware.")
+        print(f"[NOTE] Response took {elapsed:.0f}s — consider llama3 if qwen-qwq-32b is slow on your hardware.")
 
     # Cache result in MongoDB model_outputs
     try:

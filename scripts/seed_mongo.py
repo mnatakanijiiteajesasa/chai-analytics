@@ -26,7 +26,7 @@ from pathlib import Path
 from pymongo import MongoClient, ASCENDING
 from pymongo.errors import BulkWriteError
 
-MONGODB_URI   = os.getenv("MONGODB_URI", "mongodb://localhost:27017/chaimterics")
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://maggie:6688diggy@diggy.rug2w.mongodb.net/chaimterics?retryWrites=true&w=majority&appName=Diggy")
 DATA_DIR      = Path(os.getenv("DATA_DIR", str(Path(__file__).resolve().parent.parent / "data")))
 
 # Array collections — each file contains a JSON array of documents
@@ -154,7 +154,13 @@ def main():
         print("WARNING: --drop flag set. All existing collections will be cleared.\n")
 
     print(f"Connecting to {MONGODB_URI} ...")
-    client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+    try:
+        client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+
+    except Exception as e:
+        print(f"Failed to connect to MongoDB: {e}")
+        return  
+    
     db = client.get_default_database()
     db.command("ping")
     print(f"Connected. Database: {db.name}\n")

@@ -26,7 +26,7 @@ services:
       mongo:
         condition: service_healthy
     environment:
-      MONGODB_URI: mongodb://mongo:27017/chaimterics
+      MONGODB_URI: ${MONGODB_URI}
       OLLAMA_HOST: http://172.20.0.1:11434
       DATA_DIR: /app/data
       MODELS_DIR: /app/models
@@ -48,20 +48,8 @@ services:
       - mongo
     environment:
       - ML_URL=http://ml_engine:5000
-      - MONGODB_URI=mongodb://mongo:27017/chaimterics
+      - MONGODB_URI=${MONGODB_URI}
       - JWT_SECRET_KEY=chaimterics-super-secret-key-32bytes!!
-  dashboard:
-    build: 
-      context: ./dashboard
-      dockerfile: Dockerfile
-    container_name: chaimterics_dashboard
-    restart: unless-stopped
-    depends_on:
-      - api
-    ports:
-      - "5173:5173"
-    # prevents host node_modules from overriding container's
-      # - VITE_API_URL=http://api:5000
 
 volumes:
   mongo_data:

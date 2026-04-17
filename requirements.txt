@@ -25,3 +25,5 @@ gunicorn==23.0.0
 # Torch (install stub now; full LSTM in Phase 4)
 # Uncomment if you have the GPU RAM. Otherwise leave commented for Phase 1.
 # torch==2.4.1
+#AI Agent
+groq
