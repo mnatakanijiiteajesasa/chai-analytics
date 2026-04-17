@@ -28,7 +28,7 @@ def login():
 
     db   = get_db()
     #check admins collections first
-    admin = db.admins.find_one({"username": member_no}, {"_id": 0, "username": 1, "role": 1})
+    admin = db.admins.find_one({"username": member_no}, {"_id": 0, "username": 1, "role": 1, "password": 1, "name": 1})
     if admin:
         if password != admin["password"]:
             return jsonify({"error": "invalid credentials"}), 401
