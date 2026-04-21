@@ -448,9 +448,9 @@ def compute_earnings(farm_seasons, pricing_lookup, factory_code):
         for m_idx, kg in enumerate(season["monthly_kg"]):
             key = (sy, m_idx, factory_code)
             pr  = pricing_lookup.get(key, {})
-            monthly_rate   = pr.get("monthly_rate_kes_per_kg",    22.0)
-            minibonus_rate = pr.get("minibonus_rate_kes_per_kg",    0.0)
-            annual_rate    = pr.get("annual_bonus_rate_kes_per_kg", 0.0)
+            monthly_rate   = pr.get("monthly_rate_kes_per_kg",    25.0)
+            minibonus_rate = pr.get("minibonus_rate_kes_per_kg",    5.0)
+            annual_rate    = pr.get("annual_bonus_rate_kes_per_kg", 50.0)
             earn = round(kg * (monthly_rate + minibonus_rate), 2)
             monthly_earn.append(earn)
             if m_idx == ANNUAL_BONUS_IDX:
