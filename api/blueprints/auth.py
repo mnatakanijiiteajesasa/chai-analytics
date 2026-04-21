@@ -76,7 +76,7 @@ def me():
         return jsonify({"error": str(e)}), 401
 
 @auth_bp.route('/farms', methods=['GET'])
-@jwt_required
+@jwt_required()
 def get_all_farms():
     if current_user['role'] != 'admin':
         return jsonify({"error": "Unauthorized"}), 403
