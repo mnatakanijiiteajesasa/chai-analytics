@@ -75,10 +75,9 @@ def me():
     except Exception as e:
         return jsonify({"error": str(e)}), 401
 
-@auth_bp.route('/farms', methods=['GET'])
-@jwt_required()
-def get_all_farms():
-    if current_user['role'] != 'admin':
-        return jsonify({"error": "Unauthorized"}), 403
-    farms = list(db.farms.find({}, {"_id": 0, "ktda_member_no": 1, "name": 1, "owner_name": 1}))
-    return jsonify(farms)
+#@auth_bp.route('/farms', methods=['GET'])
+#@jwt_required()
+#   if current_user['role'] != 'admin':
+#        return jsonify({"error": "Unauthorized"}), 403
+ #   farms = list(db.farms.find({}, {"_id": 0, "ktda_member_no": 1, "name": 1, "owner_name": 1}))
+  #  return jsonify(farms)
