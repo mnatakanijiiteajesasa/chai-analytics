@@ -25,8 +25,9 @@ def create_app() -> Flask:
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = False   # long-lived for demo; tighten in prod
     app.config["MONGODB_URI"]             = os.getenv("MONGODB_URI", "mongodb://localhost:27017/chaimterics")
     app.config["MODELS_DIR"]              = os.getenv("MODELS_DIR",  "/app/models")
-    app.config["OLLAMA_HOST"]             = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-    app.config["OLLAMA_MODEL"]            = os.getenv("OLLAMA_MODEL", "qwen")
+    app.config["GROQ_API_KEY"]            = os.getenv("GROQ_API_KEY", "")
+    app.config["GROQ_MODEL"]              = os.getenv("GROQ_MODEL", "qwen/qwen3-32b")
+    
 
     #  Extensions 
     JWTManager(app)

@@ -29,3 +29,7 @@ services:
       - ML_URL=http://ml_engine:5000
       - MONGODB_URI=${MONGODB_URI}
       - JWT_SECRET_KEY=chaimterics-super-secret-key-32bytes!!
+
+    volumes:
+      - ./api:/app/api
+      - ./models:/app/models:ro

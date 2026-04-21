@@ -151,7 +151,7 @@ def _build_recommendations(farm: dict, xgb: dict, sarima_meta: dict | None,
     return recs
 
 
-def _call_ollama(pipeline_result: dict, host: str, model: str) -> str | None:
+def _call_groq(pipeline_result: dict, host: str, model: str) -> str | None:
     farm    = pipeline_result["farm"]
     current = pipeline_result["current_season"]
     xgb     = pipeline_result["xgb_prediction"]
@@ -187,14 +187,18 @@ def _call_ollama(pipeline_result: dict, host: str, model: str) -> str | None:
 
     try:
         resp = http_requests.post(
-            f"{host}/api/generate",
-            json={
-                "model":  model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {"temperature":0.3,"num_predict":250,"num_ctx":1024,"top_p":0.9},
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type":  "application/json",
             },
-            timeout=60,
+            json={
+                "model":       model,
+                "messages":    [{"role": "user", "content": prompt}],
+                "temperature": 0.3,
+                "max_tokens":  300,
+            },
+            timeout=30,
         )
         resp.raise_for_status()
         return resp.json().get("response", "").strip()
@@ -272,10 +276,10 @@ def get_insights(member_no: str):
 
     #  Optional Ollama narrative 
     if narrative:
-        result["narrative"] = _call_ollama(
+        result["narrative"] = _call_groq(
             result,
-            host  = current_app.config["OLLAMA_HOST"],
-            model = current_app.config["OLLAMA_MODEL"],
+            host  = current_app.config["GROQ_HOST"],
+            model = current_app.config["GROQ_MODEL"],
         )
 
     #  Cache result 
