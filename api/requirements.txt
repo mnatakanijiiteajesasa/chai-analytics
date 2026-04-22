@@ -1,7 +1,8 @@
-# backed servers 
+# backend servers 
 flask==3.1.0
 flask-jwt-extended==4.7.1
 gunicorn==23.0.0
+flask-cors
 
 # database
 joblib==1.4.2
