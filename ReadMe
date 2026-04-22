@@ -1,134 +1,109 @@
-# ChaiMetrics — Phase 1, Steps 1–3
-## WSL + Docker setup guide
+ChaiMetrics
+KTDA Farm Intelligence Dashboard
 
----
+AI-powered analytics platform for KTDA smallholder tea farmers, delivering yield predictions, seasonal forecasting, and plain-language farm insights.
 
-## Prerequisites (WSL side)
-Docker Desktop must be running on Windows with WSL2 integration enabled.
-Confirm from your WSL terminal:
+Overview
+
+ChaiMetrics is a multi-farm analytics platform built for smallholder tea farmers operating under the Kenya Tea Development Agency (KTDA) network. It combines machine learning, time-series forecasting, and a local AI narrative engine to turn raw farm data into actionable intelligence — presented in a way that is accessible to both field officers and farmers.
+
+The platform currently models **240 farms across 15 seasons**, with two real KTDA factories integrated as reference nodes: Weru Factory (WRU-01, Tharaka-Nithi) and Rukuriri Factory (RKR-01, Embu, Fairtrade certified).
+
+Key Features
+
+Yield Prediction
+Uses an XGBoost model trained on domain-accurate synthetic farm data to predict green leaf yield per farm. Accounts for pruning recovery curves, seasonal patterns, and weather inputs sourced from Open-Meteo.
+
+Seasonal Forecasting
+SARIMA/SARIMAX time-series models forecast yield trends across the KTDA season calendar (July–June), including minibonus payment month patterns and pruning cycle effects.
+
+AI Farm Narratives
+A cloud-hosted Groq LLM (qwen) generates plain-language summaries of farm performance, making insights readable for non-technical stakeholders and field extension officers.
+
+Multi-Farm Dashboard
+A React-based frontend presents per-farm and aggregate analytics, with support for farm-level drill-down, seasonal comparisons, and factory-level aggregation.
+
+Weather Integration
+Live and historical weather data pulled from Open-Meteo is fed into forecasting models to contextualise yield variation against rainfall and temperature conditions.
+
+Project Status
+
+Active Development - Core ML pipeline and API are functional. 
+Frontend dashboard and deployment pipeline are actively being refined. Not yet production-ready for field deployment.
+
+Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React |
+| Backend API | Flask (Python) |
+| ML Models | XGBoost, LightGBM |
+| Forecasting | SARIMA / SARIMAX |
+| LLM Narratives | Groq (qwen)|
+| Database | MongoDB |
+| Cache | Redis |
+| Weather Data | Open-Meteo API |
+| Containerisation | Docker / Docker Compose |
+| Deployment | Render |
+
+Repository Structure
+
+```
+chaimetrics/
+├── api/                  # Flask backend service
+│   ├── blueprints/       # Route handlers (farms, insights, forecasts)
+│   ├── utils.py          # Model loading and shared utilities
+│   ├── app.py            # App factory
+│   └── Dockerfile
+├── models/               # Trained ML model artefacts (.pkl, .parquet)
+├── scripts/              # preprocess.py, train_xgboost.py, generate_data.py
+├── docker-compose.yml
+└── README.md
+```
+ML Pipeline
+
+Before running the API, model artefacts must be generated locally by running the training pipeline in order:
 
 ```bash
-docker --version          # Docker 24+
-docker compose version    # v2.x
+python scripts/preprocess.py
+python scripts/train_xgboost.py
 ```
+
+This produces the following files under `models/`:
+
+```
+models/
+├── xgb_yield.pkl
+├── preprocessor.pkl
+├── xgb_feature_importances.parquet
+├── X_features.parquet
+└── row_ids.parquet
+```
+
+These artefacts are copied into the API container at build time and are required for the `/farms/:id/insights` endpoint to function.
 
 ---
+Factory Reference Nodes
 
-## Project layout
+| Factory | Code | County | Certification |
+|---|---|---|---|
+| Weru | WRU-01 | Tharaka-Nithi | — |
+| Rukuriri | RKR-01 | Embu | Fairtrade |
 
-```
-chaimterics/
-├── docker-compose.yml    # Mongo + ml_engine + Ollama
-├── Dockerfile.ml         # Python 3.11-slim ML container
-├── requirements.txt      # All Phase 1 Python deps
-├── data/                 # PUT YOUR JSON FILES HERE
-│   ├── farms.json
-│   └── ktda_pricing.json
-├── scripts/
-│   ├── verify_env.py     # Step 1 — checks everything is working
-│   ├── seed_mongo.py     # Step 2 — loads JSON into MongoDB
-│   └── weather_fetch.py  # Step 3 — pulls Open-Meteo data
-└── models/               # joblib .pkl files land here (Steps 4-6)
-```
+For KTDA Stakeholders
 
----
+ChaiMetrics is designed to support factory managers, extension officers, and KTDA programme teams with data-driven tools for farm performance monitoring. The platform does not replace field knowledge — it augments it by surfacing patterns across large numbers of farms that would be difficult to track manually.
 
-## Step 1 — Build and start the stack
+Insights are generated in plain language and are intended to be interpretable without a technical background. If you are a KTDA stakeholder interested in a demonstration or data partnership, please reach out via the contact details below.
+Email - mogakanewton0@gmail.com
 
-```bash
-# From the chaimterics/ directory:
-docker compose up --build -d
+Contributing
 
-# Watch startup (Mongo health + Ollama model pull takes ~2-5 min first time):
-docker compose logs -f
+This project is in active development. If you are a developer interested in contributing — particularly in areas of ML model improvement, frontend UX, or KTDA data integration — feel free to open an issue or submit a pull request.
 
-# Once stable, verify everything works:
-docker compose exec ml_engine python scripts/verify_env.py
-```
+License
 
-Expected output: all four checks green (packages, MongoDB, Ollama, Open-Meteo).
-
-**Note on Ollama RAM:** Mistral 7B needs ~8GB RAM assigned to Docker.
-In Docker Desktop → Settings → Resources, set Memory to 10GB+.
-If RAM is tight during development, you can run Ollama locally in WSL instead:
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull mistral
-# Then set OLLAMA_HOST=http://host.docker.internal:11434 in docker-compose.yml
-```
-
----
-
-## Step 2 — Seed MongoDB
-
-# mongoimport the two array files as before:
-docker compose exec mongo mongoimport --db chaimterics --collection farms --file /seed/farms.json --jsonArray
-docker compose exec mongo mongoimport --db chaimterics --collection ktda_pricing --file /seed/ktda_pricing.json --jsonArray
-
-# seed_mongo.py handles synthetic_metadata.json + creates all indexes:
-docker compose exec ml_engine python scripts/seed_mongo.py
-
-farms               : 240 documents
-ktda_pricing        : ~180 documents
-factory_metadata    : 1 document
-weather_history     : 0 documents  (Step 3)
-model_outputs       : 0 documents  (Steps 4-6)
+To be defined. All rights reserved pending formal licensing decision.
 
 
-## Step 3 — Fetch Open-Meteo weather data
-
-This fetches 15 years × 12 collection centres = ~180 season-centre combinations.
-Each needs 2 calendar-year API calls → ~360 HTTP requests total.
-Already-fetched records are skipped on re-run (idempotent).
-
-```bash
-# Full fetch (run overnight or leave running — ~5-10 minutes):
-docker compose exec ml_engine python scripts/weather_fetch.py
-
-# Test with one centre first:
-docker compose exec ml_engine python scripts/weather_fetch.py --centre "Marima"
-
-# Dry-run to preview what will be fetched:
-docker compose exec ml_engine python scripts/weather_fetch.py --dry-run
-```
-
-Expected final output:
-```
-Fetched:  180
-Skipped (already in DB): 0
-Total in weather_history: 180
-Step 3 done. weather_history collection is ready for preprocessing.
-```
-
----
-
-## Connecting to MongoDB directly (optional)
-
-```bash
-# Mongosh REPL:
-docker compose exec mongo mongosh chaimterics
-
-# Quick document count:
-docker compose exec mongo mongosh chaimterics \
-  --eval "printjson({farms: db.farms.countDocuments(), pricing: db.ktda_pricing.countDocuments(), weather: db.weather_history.countDocuments()})"
-```
-
----
-
-## Stopping and restarting
-
-```bash
-docker compose down          # stop containers, keep volumes
-docker compose down -v       # stop + wipe all data (full reset)
-docker compose up -d         # restart in background
-```
-
----
-
-## Next: Steps 4–6 (preprocessing + model training)
-
-Once Steps 1–3 are verified complete, the next scripts will be:
-
-- `scripts/preprocess.py`  — sklearn pipeline (feature matrix from MongoDB)
-- `scripts/train_xgboost.py` — XGBoost yield model → `models/xgb_yield.pkl`
-- `scripts/train_sarima.py`  — per-farm SARIMA + pricing SARIMA → `models/sarima/`
+Built for the Kenyan tea farming ecosystem.
