@@ -274,7 +274,7 @@ def get_insights(member_no: str):
         "from_cache":       False,
     }
 
-    #  Optional Ollama narrative 
+    #  Optional groq narrative 
     if narrative:
         result["narrative"] = _call_groq(
             result,
