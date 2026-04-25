@@ -24,7 +24,7 @@ import requests as http_requests
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from utils import get_db, get_models, get_sarima_meta, get_pricing_meta
+from utils import get_db, get_models, get_sarima_meta, get_pricing_meta, get_gnn_output, get_cluster_peers
 
 insights_bp = Blueprint("insights", __name__)
 
@@ -142,6 +142,28 @@ def _build_recommendations(farm: dict, xgb: dict, sarima_meta: dict | None,
             "detail":"XGBoost ranks fertiliser among the top predictors of yield variance.",
             "action":f"Ensure NPK/CAN on schedule (~{50*ha:.0f}kg total for your {ha:.1f}ha)."})
 
+    # ── GNN relational anomaly ────────────────────────────────────────
+    gnn = farm.get("_gnn")   # injected by get_insights before calling this
+    if gnn:
+        anomaly_score = gnn.get("anomaly_score", 0)
+        cluster_id    = gnn.get("cluster_id")
+        peers         = gnn.get("peers", [])
+
+        if anomaly_score > 0.75:
+            peer_names = ", ".join(p["ktda_member_no"] for p in peers[:3])
+            recs.append({"priority":"high","category":"anomaly",
+                "title":"Farm performance is a significant outlier in its cluster",
+                "detail":f"GNN anomaly score {anomaly_score:.2f}/1.0 — this farm deviates "
+                         f"substantially from its {len(peers)} structural peers in cluster {cluster_id}.",
+                "action":f"Compare management practices with nearby farms: {peer_names}. "
+                         f"Investigate whether the gap is due to inputs, pruning timing, or soil."})
+        elif anomaly_score > 0.5:
+            recs.append({"priority":"medium","category":"anomaly",
+                "title":"Farm shows moderate deviation from cluster peers",
+                "detail":f"GNN anomaly score {anomaly_score:.2f}/1.0 — performance diverges "
+                         f"from structurally similar farms in the same zone.",
+                "action":"Review fertiliser and pruning schedule against collection centre average."})
+
     if not recs:
         recs.append({"priority":"low","category":"yield",
             "title":"Farm performing within expected range",
@@ -235,6 +257,11 @@ def get_insights(member_no: str):
     xgb     = _run_xgb_prediction(farm, models, month_idx)
     sarima  = get_sarima_meta(member_no, farm["factory_code"])
     pricing = get_pricing_meta(farm["factory_code"])
+    gnn     = get_gnn_output(member_no)
+    peers   = get_cluster_peers(member_no, gnn["cluster_id"]) if gnn else []
+    if gnn:
+        gnn["peers"] = peers
+    farm["_gnn"] = gnn   # inject for recommendation builder
     recs    = _build_recommendations(farm, xgb, sarima, pricing)
 
     # Score
@@ -269,6 +296,13 @@ def get_insights(member_no: str):
         "pricing_forecast": {k: v.get("forecast", [])[:6] for k, v in pricing.items()},
         "recommendations":  recs,
         "performance_score": score,
+        "gnn": {
+            "cluster_id":    gnn.get("cluster_id") if gnn else None,
+            "anomaly_score": gnn.get("anomaly_score") if gnn else None,
+            "cluster_peers": [{"ktda_member_no": p["ktda_member_no"],
+                               "collection_centre": p["collection_centre"],
+                               "anomaly_score": p["anomaly_score"]} for p in peers],
+        } if gnn else None,
         "computed_at":      datetime.utcnow().isoformat(),
         "elapsed_seconds":  round(time.time() - t0, 2),
         "from_cache":       False,
