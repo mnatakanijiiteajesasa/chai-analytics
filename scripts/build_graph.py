@@ -157,7 +157,7 @@ def main():
     client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
     db     = client.get_default_database()
     db.command("ping")
-    print("Connected.\n")
+    print(f"Connected to {db.name}\n")
 
     # Load all farms
     farms = list(db.farms.find({}, {"_id": 0}))
